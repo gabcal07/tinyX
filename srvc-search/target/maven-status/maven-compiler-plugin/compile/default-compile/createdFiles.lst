@@ -1,9 +1,0 @@
-com\epita\redis\DeletePostSubscriber.class
-com\epita\controller\ServiceSearchControler.class
-com\epita\repository\ElasticSearchRepository.class
-com\epita\service\SearchService.class
-com\epita\redis\CreatePostPublisherTest.class
-com\epita\redis\DeletePostPublisherTest.class
-META-INF\panache-archive.marker
-com\epita\redis\CreatePostSubscriber.class
-com\epita\repository\entity\Post.class
