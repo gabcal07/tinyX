@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: ServiceSearchTests
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 13.954 s - in ServiceSearchTests

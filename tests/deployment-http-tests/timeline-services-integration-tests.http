@@ -1,0 +1,287 @@
+### Timeline Services Integration Tests
+
+### Nettoyage de la base de données
+POST http://192.168.122.104/users/clear
+Content-Type: application/json
+
+### Création d'un utilisateur principal
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "john_doe"
+}
+
+> {%
+    client.test("Vérification création utilisateur principal", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Création d'un utilisateur secondaire
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "alice_smith"
+}
+
+> {%
+    client.test("Vérification création utilisateur secondaire", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### John suivant Alice
+POST http://192.168.122.104/social/john_doe/follow/alice_smith
+
+> {%
+    client.test("Vérification John suit Alice", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Création d'un post par John
+# @name createJohnPost
+POST http://192.168.122.104/posts
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+
+{
+  "authorUsername": "john_doe",
+  "text": "Voici un post de test pour la timeline de John",
+  "type": "ORIGINAL"
+}
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+> {%
+    client.test("Vérification création post de John", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.postId, "PostId manquant dans la réponse");
+        client.global.set("johnPostId", response.body.postId);
+        console.log("johnPostId: " + client.global.get("johnPostId"));
+    });
+%}
+
+### Création d'un post par Alice
+# @name createAlicePost
+POST http://192.168.122.104/posts
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+
+{
+  "authorUsername": "alice_smith",
+  "text": "Voici un post de test pour la timeline d'Alice",
+  "type": "ORIGINAL"
+}
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+> {%
+    client.test("Vérification création post d'Alice", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.postId, "PostId manquant dans la réponse");
+        client.global.set("alicePostId", response.body.postId);
+        console.log("alicePostId: " + client.global.get("alicePostId"));
+    });
+%}
+
+### Alice aime le post de John
+POST http://192.168.122.104/social/alice_smith/like/{{createJohnPost.response.body.postId}}
+
+> {%
+    client.test("Vérification Alice aime le post de John", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Test 1: Récupérer la timeline utilisateur de John
+GET http://192.168.122.104/timelines/user/john_doe
+Content-Type: application/json
+
+> {%
+    client.test("Vérification timeline utilisateur de John", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        
+        // Vérifier que la timeline n'est pas vide
+        client.assert(response.body.posts && response.body.posts.length > 0, 
+            "La timeline utilisateur devrait contenir au moins un post");
+        
+        // Vérifier que le post de John est dans sa timeline
+        let johnPostFound = false;
+        const johnPostId = client.global.get("johnPostId");
+        for (let i = 0; i < response.body.posts.length; i++) {
+            if (response.body.posts[i].postId === johnPostId) {
+                johnPostFound = true;
+                break;
+            }
+        }
+        client.assert(johnPostFound, "Le post de John devrait être dans sa timeline utilisateur");
+    });
+%}
+
+### Test 2: Récupérer la timeline utilisateur d'Alice
+GET http://192.168.122.104/timelines/user/alice_smith
+Content-Type: application/json
+
+> {%
+    client.test("Vérification timeline utilisateur d'Alice", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        
+        // Vérifier que la timeline n'est pas vide
+        client.assert(response.body.posts && response.body.posts.length > 0, 
+            "La timeline utilisateur devrait contenir au moins un post");
+        
+        // Vérifier que le post d'Alice est dans sa timeline
+        let alicePostFound = false;
+        const alicePostId = client.global.get("alicePostId");
+        for (let i = 0; i < response.body.posts.length; i++) {
+            if (response.body.posts[i].postId === alicePostId) {
+                alicePostFound = true;
+                break;
+            }
+        }
+        client.assert(alicePostFound, "Le post d'Alice devrait être dans sa timeline utilisateur");
+        
+        // Optionnellement, vérifier les post aimés
+        if (response.body.likedPosts) {
+            let johnPostLiked = false;
+            const johnPostId = client.global.get("johnPostId");
+            for (let i = 0; i < response.body.likedPosts.length; i++) {
+                if (response.body.likedPosts[i].postId === johnPostId) {
+                    johnPostLiked = true;
+                    break;
+                }
+            }
+            client.assert(johnPostLiked, "Le post de John devrait être dans les posts aimés d'Alice");
+        }
+    });
+%}
+
+### Test 3: Récupérer la home timeline de John
+GET http://192.168.122.104/timelines/home/john_doe
+Content-Type: application/json
+
+> {%
+    client.test("Vérification home timeline de John", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        
+        // La home timeline devrait contenir ses propres posts et ceux des personnes suivies
+        client.assert(response.body.posts && response.body.posts.length > 0, 
+            "La home timeline devrait contenir au moins un post");
+        
+        // Vérifier que le post d'Alice est dans la home timeline de John (car il la suit)
+        let alicePostFound = false;
+        const alicePostId = client.global.get("alicePostId");
+        for (let i = 0; i < response.body.posts.length; i++) {
+            if (response.body.posts[i].postId === alicePostId) {
+                alicePostFound = true;
+                break;
+            }
+        }
+        client.assert(alicePostFound, "Le post d'Alice devrait être dans la home timeline de John");
+        
+        // Vérifier que le post de John est aussi dans sa home timeline
+        let johnPostFound = false;
+        const johnPostId = client.global.get("johnPostId");
+        for (let i = 0; i < response.body.posts.length; i++) {
+            if (response.body.posts[i].postId === johnPostId) {
+                johnPostFound = true;
+                break;
+            }
+        }
+        client.assert(johnPostFound, "Le post de John devrait être dans sa home timeline");
+    });
+%}
+
+### Test 4: Récupérer la home timeline d'Alice
+GET http://192.168.122.104/timelines/home/alice_smith
+Content-Type: application/json
+
+> {%
+    client.test("Vérification home timeline d'Alice", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        
+        // La home timeline devrait contenir ses propres posts
+        client.assert(response.body.posts && response.body.posts.length > 0, 
+            "La home timeline devrait contenir au moins un post");
+        
+        // Vérifier que le post d'Alice est dans sa home timeline
+        let alicePostFound = false;
+        const alicePostId = client.global.get("alicePostId");
+        for (let i = 0; i < response.body.posts.length; i++) {
+            if (response.body.posts[i].postId === alicePostId) {
+                alicePostFound = true;
+                break;
+            }
+        }
+        client.assert(alicePostFound, "Le post d'Alice devrait être dans sa home timeline");
+        
+        // Comme Alice ne suit pas John, son post ne devrait pas être dans la home timeline d'Alice
+        // Mais si le système inclut quand même les posts aimés dans la home timeline, il faudrait adapter ce test
+    });
+%}
+
+### Test 5: Bloquer un utilisateur devrait l'empêcher d'apparaître dans la timeline
+POST http://192.168.122.104/social/john_doe/block/alice_smith
+
+> {%
+    client.test("Vérification John bloque Alice", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Vérifier la home timeline de John après blocage d'Alice
+GET http://192.168.122.104/timelines/home/john_doe
+Content-Type: application/json
+
+> {%
+    client.test("Vérification home timeline de John après blocage", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        
+        // La home timeline ne devrait plus contenir les posts d'Alice
+        let alicePostFound = false;
+        const alicePostId = client.global.get("alicePostId");
+        if (response.body.posts) {
+            for (let i = 0; i < response.body.posts.length; i++) {
+                if (response.body.posts[i].postId === alicePostId) {
+                    alicePostFound = true;
+                    break;
+                }
+            }
+        }
+        client.assert(!alicePostFound, "Le post d'Alice ne devrait plus être dans la home timeline de John après blocage");
+    });
+%}
+
+### Test 6: Récupérer la timeline d'un utilisateur inexistant
+GET http://192.168.122.104/timelines/user/nonexistent_user
+Content-Type: application/json
+
+> {%
+    client.test("Vérification timeline utilisateur inexistant", function() {
+        client.assert(response.status === 404, "Statut attendu: 404, reçu: " + response.status);
+    });
+%}
+
+### Test 7: Récupérer la home timeline d'un utilisateur inexistant
+GET http://192.168.122.104/timelines/home/nonexistent_user
+Content-Type: application/json
+
+> {%
+    client.test("Vérification home timeline utilisateur inexistant", function() {
+        client.assert(response.status === 404, "Statut attendu: 404, reçu: " + response.status);
+    });
+%}
+
+### Nettoyage - Suppression des utilisateurs
+DELETE http://192.168.122.104/users/delete/john_doe
+Content-Type: application/json
+
+DELETE http://192.168.122.104/users/delete/alice_smith
+Content-Type: application/json

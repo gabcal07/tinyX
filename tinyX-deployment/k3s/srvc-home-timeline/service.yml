@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: timeline-home
+  labels:
+    app: tinyx
+    component: timeline-home
+spec:
+  selector:
+    app: tinyx
+    component: timeline-home
+  ports:
+    - name: http
+      port: 8086
+      targetPort: 8086

@@ -1,0 +1,55 @@
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: tinyx-ingress
+  namespace: tinyx
+  labels:
+    app: tinyx
+
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 8080
+          - path: /posts
+            pathType: Prefix
+            backend:
+              service:
+                name: repo-post
+                port:
+                  number: 8082
+          - path: /social
+            pathType: Prefix
+            backend:
+              service:
+                name: repo-social
+                port:
+                  number: 8083
+
+          - path: /search
+            pathType: Prefix
+            backend:
+              service:
+                name: srvc-search
+                port:
+                  number: 8085
+          - path: /timelines/home
+            pathType: Prefix
+            backend:
+              service:
+                name: timeline-home
+                port:
+                  number: 8086
+          - path: /timelines/user
+            pathType: Prefix
+            backend:
+              service:
+                name: timeline-user
+                port:
+                  number: 8084

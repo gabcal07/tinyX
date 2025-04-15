@@ -1,0 +1,9 @@
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\service\entities\UserEntity.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\service\ServiceUserService.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\redis\UserActionPublisher.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\dto\responses\GetUserResponse.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\repository\models\UserModel.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\dto\contracts\CreateUserContract.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\Converter.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\controller\ServiceUserController.java
+C:\Users\Gabriel\dev\epitweeet\srvc-user\src\main\java\com\epita\repository\ServiceUserMongoRepo.java

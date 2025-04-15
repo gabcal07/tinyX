@@ -1,0 +1,66 @@
+services:
+
+  mongo:
+    image: mongo
+    container_name: epitweet_td_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: Epitweet
+    volumes:
+      - ./init_mongo.js:/docker-entrypoint-initdb.d/init.js:ro
+    ports:
+      - 27017:27017
+    expose:
+      - "27017"
+
+  redis:
+    image: "redis:alpine"
+    container_name: epitweet_td_redis
+    restart: unless-stopped
+    command: redis-server
+    ports:
+      - 6379:6379
+    expose:
+      - "6379"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.1
+    container_name: epitweet_td_elasticsearch
+    restart: unless-stopped
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: 4194304
+        hard: 4194304
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: 4g
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - 9200:9200
+      - 9300:9300
+    expose:
+      - "9200"
+      - "9300"
+
+  neo4j:
+    image: neo4j:3.5
+    container_name: epitweet_td_neo4j
+    restart: unless-stopped
+    environment:
+      - NEO4J_AUTH=none
+      - NEO4J_dbms_memory_pagecache_size=1G
+      - NEO4J_dbms.memory.heap.initial_size=1G
+      - NEO4J_dbms_memory_heap_max__size=1G
+    ports:
+      - 7474:7474
+      - 7687:7687
+    expose:
+      - "7474"
+      - "7687"

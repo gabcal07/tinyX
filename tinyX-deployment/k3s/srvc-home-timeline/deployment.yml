@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timeline-home
+  labels:
+    app: tinyx
+    component: timeline-home
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tinyx
+      component: timeline-home
+  template:
+    metadata:
+      labels:
+        app: tinyx
+        component: timeline-home
+    spec:
+      imagePullSecrets:
+        - name: tinyx-pull-secret
+      containers:
+        - name: timeline-home
+          image: registry.cri.epita.fr/ing/majeures/tc/info/student/2026/2025-epitweet-tinyx-21/srvc-home-timeline
+          ports:
+            - name: http
+              containerPort: 8086
+          env:
+            - name: QUARKUS_MONGODB_CONNECTION__STRING
+              value: mongodb://admin:admin@shared-mongodb-0.shared-mongodb.tinyx.svc.cluster.local:27017/home_timelines_db?authSource=admin&retryWrites=true&w=majority&uuidRepresentation=STANDARD&replicaSet=rs0
+            - name: QUARKUS_REDIS_HOSTS
+              value: redis://redis.tinyx.svc.cluster.local:6379

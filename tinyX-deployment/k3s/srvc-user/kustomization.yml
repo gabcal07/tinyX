@@ -1,0 +1,10 @@
+kind: Kustomization
+metadata:
+  name: user-service
+
+namespace: tinyx
+
+resources:
+  - deployment.yml
+  - service.yml
+  - secrets.yml

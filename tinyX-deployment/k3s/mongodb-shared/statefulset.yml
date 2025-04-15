@@ -1,0 +1,197 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: shared-mongodb
+  labels:
+    app: tinyx
+    component: mongodb-shared
+spec:
+  serviceName: shared-mongodb
+  replicas: 2
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app: tinyx
+      component: mongodb-shared
+  template:
+    metadata:
+      labels:
+        app: tinyx
+        component: mongodb-shared
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:6.0
+        command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]
+        ports:
+        - name: mongodb
+          containerPort: 27017
+        env:
+          - name: MONGO_INITDB_ROOT_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: mongodb-shared-credentials
+                key: MONGO_INITDB_ROOT_USERNAME
+          - name: MONGO_INITDB_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mongodb-shared-credentials
+                key: MONGO_INITDB_ROOT_PASSWORD
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        - name: mongodb-init
+          mountPath: /docker-entrypoint-initdb.d
+        readinessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 15
+      - name: mongo-init
+        image: mongo:6.0
+        command: 
+        - "/bin/bash"
+        - "-c"
+        - |
+          # Wait for all replicas to be up before initializing
+          echo "Waiting for MongoDB pods to be ready..."
+          sleep 20
+          
+          # Only run initialization from the first pod
+          if [[ $(hostname) == "shared-mongodb-0" ]]; then
+            echo "Running on primary node, checking replica set status..."
+            
+            # Check if replica set is already initialized
+            initialized=false
+            for i in {1..10}; do
+              status=$(mongosh --quiet --eval "try { rs.status().ok } catch(e) { 0 }")
+              if [[ "$status" == "1" ]]; then
+                echo "Replica set is already initialized"
+                initialized=true
+                break
+              fi
+              echo "Replica set not initialized yet, attempt $i/10"
+              sleep 3
+            done
+            
+            if [[ "$initialized" == "false" ]]; then
+              echo "Initializing replica set..."
+              mongosh --eval 'rs.initiate({
+                _id: "rs0",
+                members: [
+                  { _id: 0, host: "shared-mongodb-0.shared-mongodb.tinyx.svc.cluster.local:27017", priority: 10 },
+                  { _id: 1, host: "shared-mongodb-1.shared-mongodb.tinyx.svc.cluster.local:27017", priority: 1 }
+                ]
+              })'
+              
+              # Wait for primary election
+              echo "Waiting for primary election..."
+              primary=false
+              for i in {1..30}; do
+                isprimary=$(mongosh --quiet --eval 'try { rs.isMaster().ismaster } catch(e) { false }')
+                if [[ "$isprimary" == "true" ]]; then
+                  echo "Primary elected!"
+                  primary=true
+                  break
+                fi
+                echo "Waiting for primary election... attempt $i/30"
+                sleep 5
+              done
+              
+              if [[ "$primary" == "true" ]]; then
+                echo "Creating MongoDB users and databases..."
+                sleep 5 # Give some time for election to fully complete
+                
+                # Create admin user
+                mongosh admin --eval 'db.createUser({
+                  user: "admin",
+                  pwd: "admin",
+                  roles: [{ role: "root", db: "admin" }]
+                })'
+                
+                # Create application databases and users
+                echo "Creating users_db and user..."
+                mongosh admin --eval 'db.getSiblingDB("users_db").createUser({
+                  user: "admin",
+                  pwd: "admin",
+                  roles: [{ role: "readWrite", db: "users_db" }]
+                })'
+                mongosh --eval 'db.getSiblingDB("users_db").createCollection("Users")'
+                
+                echo "Creating posts_db and user..."
+                mongosh admin --eval 'db.getSiblingDB("posts_db").createUser({
+                  user: "admin",
+                  pwd: "admin",
+                  roles: [{ role: "readWrite", db: "posts_db" }]
+                })'
+                mongosh --eval 'db.getSiblingDB("posts_db").createCollection("Posts")'
+                
+                echo "Creating social_db and user..."
+                mongosh admin --eval 'db.getSiblingDB("social_db").createUser({
+                  user: "admin",
+                  pwd: "admin",
+                  roles: [{ role: "readWrite", db: "social_db" }]
+                })'
+                mongosh --eval 'db.getSiblingDB("social_db").createCollection("Relationships")'
+                
+                echo "Creating user_timelines_db and user..."
+                mongosh admin --eval 'db.getSiblingDB("user_timelines_db").createUser({
+                  user: "admin",
+                  pwd: "admin", 
+                  roles: [{ role: "readWrite", db: "user_timelines_db" }]
+                })'
+                mongosh --eval 'db.getSiblingDB("user_timelines_db").createCollection("UserTimelines")'
+                
+                echo "Creating home_timelines_db and user..."
+                mongosh admin --eval 'db.getSiblingDB("home_timelines_db").createUser({
+                  user: "admin",
+                  pwd: "admin",
+                  roles: [{ role: "readWrite", db: "home_timelines_db" }]
+                })'
+                mongosh --eval 'db.getSiblingDB("home_timelines_db").createCollection("HomeTimelines")'
+                
+                echo "Creating search_db and user..."
+                mongosh admin --eval 'db.getSiblingDB("search_db").createUser({
+                  user: "admin",
+                  pwd: "admin",
+                  roles: [{ role: "readWrite", db: "search_db" }]
+                })'
+                mongosh --eval 'db.getSiblingDB("search_db").createCollection("SearchIndex")'
+                
+                echo "MongoDB initialization completed successfully!"
+              else
+                echo "Failed to elect primary, initialization incomplete"
+              fi
+            fi
+          else
+            echo "Not the primary node, skipping initialization"
+          fi
+          
+          # Keep the container running to provide initialization status
+          echo "MongoDB initialization container running"
+          tail -f /dev/null
+      volumes:
+      - name: mongodb-init
+        configMap:
+          name: mongodb-shared-init-scripts
+  volumeClaimTemplates:
+  - metadata:
+      name: mongodb-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi 

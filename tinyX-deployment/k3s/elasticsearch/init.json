@@ -1,0 +1,27 @@
+{
+  "mappings": {
+    "properties": {
+      "userId": { "type": "keyword" },
+      "username": { "type": "keyword" },
+      "content": { "type": "text", "analyzer": "standard" },
+      "postId": { "type": "keyword" },
+      "timestamp": { "type": "date" },
+      "tags": { "type": "keyword" },
+      "likes": { "type": "integer" },
+      "retweets": { "type": "integer" }
+    }
+  },
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "stemmer"]
+        }
+      }
+    }
+  }
+}

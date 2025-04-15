@@ -1,0 +1,18 @@
+kind: Kustomization
+
+resources:
+  - deployment.yml
+  - service.yml
+  - secrets.yml
+
+labels:
+- pairs:
+    app: tinyx
+    component: repo-post
+
+configMapGenerator:
+- name: repo-post-config
+  options:
+    labels:
+      app: tinyx
+      component: repo-post

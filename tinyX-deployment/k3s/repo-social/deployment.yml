@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: repo-social
+  labels:
+    app: tinyx
+    component: repo-social
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tinyx
+      component: repo-social
+  template:
+    metadata:
+      labels:
+        app: tinyx
+        component: repo-social
+    spec:
+      imagePullSecrets:
+      - name: tinyx-pull-secret
+      containers:
+      - name: repo-social
+        image: registry.cri.epita.fr/ing/majeures/tc/info/student/2026/2025-epitweet-tinyx-21/repo-social
+        ports:
+        - containerPort: 8083
+        env:
+        - name: NEO4J_URI
+          value: bolt://shared-neo4j.tinyx.svc.cluster.local:7687/social
+        - name: REDIS_URI
+          value: redis://:redis@redis:6379
+        - name: MONGODB_URI
+          value: mongodb://admin:admin@shared-mongodb-0.shared-mongodb.tinyx.svc.cluster.local:27017/social_db?authSource=admin&retryWrites=true&w=majority&replicaSet=rs0
+        volumeMounts:
+        - name: app-config
+          mountPath: /app/config
+      volumes:
+      - name: app-config
+        configMap:
+          name: repo-social-config

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: tinyx
+    component: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tinyx
+      component: user-service
+  template:
+    metadata:
+      labels:
+        app: tinyx
+        component: user-service
+    spec:
+      imagePullSecrets:
+        - name: tinyx-pull-secret
+      containers:
+      - name: user-service
+        image: registry.cri.epita.fr/ing/majeures/tc/info/student/2026/2025-epitweet-tinyx-21/srvc-user
+        ports:
+        - name: http
+          containerPort: 8080
+        env:
+          - name: USER_SERVICE_MONGODB_URI
+            value: mongodb://admin:admin@shared-mongodb-0.shared-mongodb.tinyx.svc.cluster.local:27017,shared-mongodb-1.shared-mongodb.tinyx.svc.cluster.local:27017/users_db?authSource=admin&retryWrites=true&w=majority&replicaSet=rs0
+          - name: USER_SERVICE_ADMIN_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: user-service-admin-token
+                key: USER_SERVICE_ADMIN_TOKEN
+          - name: NEO4J_URI
+            value: bolt://shared-neo4j.tinyx.svc.cluster.local:7687/users
+          - name: REDIS_HOST
+            value: redis
+          - name: REDIS_PORT
+            value: "6379"

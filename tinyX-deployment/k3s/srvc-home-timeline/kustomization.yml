@@ -1,0 +1,9 @@
+kind: Kustomization
+metadata:
+  name: timeline-home
+
+namespace: tinyx
+
+resources:
+  - deployment.yml
+  - service.yml

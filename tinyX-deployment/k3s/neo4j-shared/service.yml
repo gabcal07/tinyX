@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: shared-neo4j
+  labels:
+    app: tinyx
+    component: neo4j-shared
+spec:
+  ports:
+  - port: 7474
+    name: browser
+    targetPort: 7474
+  - port: 7687
+    name: bolt
+    targetPort: 7687
+  selector:
+    app: tinyx
+    component: neo4j-shared
+  type: ClusterIP 

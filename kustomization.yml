@@ -1,0 +1,6 @@
+kind: Kustomization
+resources:
+  - secrets.yml
+  - tinyX-deployment/k3s
+
+namespace: tinyx

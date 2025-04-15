@@ -1,0 +1,623 @@
+### Variables globales - ajouter cette section au début du fichier
+@firstPostId = ""
+@testPostId = ""
+
+### Nettoyage de la base de données
+POST http://192.168.122.104/users/clear
+Content-Type: application/json
+
+### Création d'un utilisateur
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "john_doe"
+}
+
+> {%
+    client.test("Vérification création utilisateur 1", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Création d'un autre utilisateur
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "park_jisung"
+}
+
+> {%
+    client.test("Vérification création utilisateur 2", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Création d'un post
+POST http://192.168.122.104/posts
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+
+{
+  "authorUsername": "john_doe",
+  "text": "John Doe est un personnage fictif, souvent utilisé comme exemple dans des contextes variés.",
+  "type": "ORIGINAL"
+}
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+> {%
+    client.global.set("firstPostId", response.body.postId);
+    client.test("Vérification création post", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.postId, "PostId manquant dans la réponse");
+        client.log("postId enregistré: " + response.body.postId);
+    });
+    // Set the file-level variable
+    request.variables.set("firstPostId", response.body.postId);
+%}
+
+### Récupérer tous les posts d'un utilisateur
+GET http://192.168.122.104/posts/user/john_doe
+Content-Type: application/json
+
+> {%
+    client.log(response.body[0])
+    client.test("Vérification récupération posts utilisateur", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.length > 0, "Aucun post trouvé");
+        client.assert(response.body[0].postId == client.global.get("firstPostId"),
+            "Le premier post ne correspond pas au post créé");
+    });
+%}
+
+### Récupérer un post spécifique
+GET http://192.168.122.104/posts/{{firstPostId}}
+
+> {%
+    client.test("Vérification récupération post spécifique", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.text === "John Doe est un personnage fictif, souvent utilisé comme exemple dans des contextes variés.",
+            "Le texte du post ne correspond pas");
+    });
+%}
+
+### Rechercher des posts avec des mots clés
+GET http://192.168.122.104/search?query=fictif
+Content-Type: application/json
+
+> {%
+    client.test("Vérification recherche de posts", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.length > 0, "Aucun post trouvé avec le mot clé");
+        client.assert(response.body[0].text.includes("fictif"),
+            "Le post trouvé ne contient pas le mot clé");
+    });
+%}
+
+
+### Rechercher des posts avec des mots clés inexistans
+GET http://192.168.122.104/search?query=fi
+Content-Type: application/json
+
+> {%
+    client.test("Vérification recherche de posts", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.length == 0, "Un post en trop a été trouvé la taille de la réponse est " + response.body.length);
+    });
+%}
+
+
+### Username2 fait une réponse à un post
+# @name createReplyPost
+POST http://192.168.122.104/posts
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+
+{
+  "authorUsername": "park_jisung",
+  "text": "John Doe est bien réel !",
+  "type": "REPLY",
+  "parentPostId": "{{firstPostId}}"
+}
+------boundary--
+
+> {%
+    client.test("Vérification création réponse", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.postId, "PostId de réponse manquant");
+    });
+%}
+
+### Récupérer les réponses à un post
+GET http://192.168.122.104/posts/replies/{{firstPostId}}
+
+> {%
+    client.global.set("replyPostId", response.body[0].postId);
+    client.test("Vérification récupération réponses", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.length > 0, "Aucune réponse trouvée");
+        client.assert(response.body[0].postId === client.global.get("replyPostId"),
+            "La première réponse ne correspond pas");
+    });
+%}
+
+### Aimer un post
+POST http://192.168.122.104/social/park_jisung/like/{{firstPostId}}
+
+> {%
+    client.test("Vérification like post", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Récupérer les posts aimés par un utilisateur
+GET http://192.168.122.104/social/users/park_jisung/likedPosts
+Content-Type: application/json
+
+> {%
+    client.test("Vérification posts aimés", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.likedPosts.length > 0, "Aucun post aimé trouvé");
+        client.assert(response.body.likedPosts[0].postId === client.global.get("firstPostId"),
+            "Le premier post aimé ne correspond pas");
+    });
+%}
+
+### Récupérer les utilisateurs qui ont aimé un post
+GET http://192.168.122.104/social/posts/{{firstPostId}}/likeUsers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs ayant aimé", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.likeUsers.length > 0, "Aucun utilisateur n'a aimé le post");
+        client.assert(response.body.likeUsers[0] === "park_jisung",
+            "L'utilisateur qui a aimé ne correspond pas");
+    });
+%}
+
+### Ne plus aimer un post
+POST http://192.168.122.104/social/park_jisung/unlike/{{firstPostId}}
+
+> {%
+    client.test("Vérification unlike post", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+
+### Récupérer les posts aimés par un utilisateur
+GET http://192.168.122.104/social/users/park_jisung/likedPosts
+Content-Type: application/json
+
+> {%
+    client.test("Vérification posts aimés", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.likedPosts.length == 0, "Aucun post aimé trouvé");
+    });
+%}
+
+### Récupérer les utilisateurs qui ont aimé un post
+GET http://192.168.122.104/social/posts/{{firstPostId}}/likeUsers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs ayant aimé", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.likeUsers.length === 0, "Aucun utilisateur n'a aimé le post");
+    });
+%}
+
+### Suivre un utilisateur
+POST http://192.168.122.104/social/john_doe/follow/park_jisung
+
+> {%
+    client.test("Vérification follow utilisateur", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Obtenir les abonnés d'un utilisateur
+GET http://192.168.122.104/social/users/park_jisung/followers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification abonnés", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.followers.length > 0, "Aucun abonné trouvé");
+        client.assert(response.body.followers[0] === "john_doe",
+            "L'abonné ne correspond pas");
+    });
+%}
+
+### Obtenir les utilisateurs suivis par un utilisateur
+GET http://192.168.122.104/social/users/john_doe/follows
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs suivis", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.following.length > 0, "Aucun utilisateur suivi trouvé");
+        client.assert(response.body.following[0] === "park_jisung",
+            "L'utilisateur suivi ne correspond pas");
+    });
+%}
+
+### Bloquer un utilisateur
+POST http://192.168.122.104/social/john_doe/block/park_jisung
+
+> {%
+    client.test("Vérification blocage utilisateur", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Obtenir les utilisateurs bloqués par un utilisateur
+GET http://192.168.122.104/social/users/john_doe/blocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs bloqués", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedUsers.length > 0, "Aucun utilisateur bloqué trouvé");
+        client.assert(response.body.blockedUsers[0] === "park_jisung",
+            "L'utilisateur bloqué ne correspond pas");
+    });
+%}
+
+### Obtenir les utilisateurs qui bloquent un utilisateur
+GET http://192.168.122.104/social/users/park_jisung/isblocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs bloquant", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedBy.length > 0, "Aucun utilisateur ne bloque trouvé");
+        client.assert(response.body.blockedBy[0] === "john_doe",
+            "L'utilisateur qui bloque ne correspond pas");
+    });
+%}
+
+### Obtenir les abonnés d'un utilisateur
+GET http://192.168.122.104/social/users/park_jisung/followers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification abonnés", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.followers.length === 0, "Aucun abonné trouvé");
+    });
+%}
+
+### Obtenir les utilisateurs suivis par un utilisateur
+GET http://192.168.122.104/social/users/john_doe/follows
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs suivis", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.following.length === 0, "Aucun utilisateur suivi trouvé");
+    });
+%}
+
+### Débloquer un utilisateur
+POST http://192.168.122.104/social/john_doe/unblock/park_jisung
+
+> {%
+    client.test("Vérification déblocage utilisateur", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Obtenir les utilisateurs bloqués par un utilisateur
+GET http://192.168.122.104/social/users/john_doe/blocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs bloqués", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedUsers.length === 0, "Aucun utilisateur bloqué trouvé");
+    });
+%}
+
+### Obtenir les utilisateurs qui bloquent un utilisateur
+GET http://192.168.122.104/social/users/park_jisung/isblocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs bloquant", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedBy.length === 0, "Aucun utilisateur ne bloque trouvé");
+
+    });
+%}
+
+### Supprimer un utilisateur
+DELETE http://192.168.122.104/users/delete/john_doe
+Content-Type: */*
+
+### Récupérer tous les posts d'un utilisateur
+GET http://192.168.122.104/posts/user/john_doe
+Content-Type: application/json
+
+### Vérification que le post lui faisant référence a pointe vers null
+GET http://192.168.122.104/posts/user/park_jisung
+Content-Type: */*
+
+### Recréation de l'utilisateur john_doe après sa suppression
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "john_doe"
+}
+
+> {%
+    client.test("Vérification recréation utilisateur john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Bloquer l'utilisateur park_jisung par john_doe
+POST http://192.168.122.104/social/john_doe/block/park_jisung
+
+> {%
+    client.test("Vérification blocage utilisateur", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Obtenir les utilisateurs bloqués par john_doe
+GET http://192.168.122.104/social/users/john_doe/blocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs bloqués par john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedUsers.length > 0, "Aucun utilisateur bloqué trouvé");
+        client.assert(response.body.blockedUsers[0] === "park_jisung",
+            "L'utilisateur bloqué ne correspond pas");
+    });
+%}
+
+### Obtenir les utilisateurs qui bloquent park_jisung
+GET http://192.168.122.104/social/users/park_jisung/isblocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs bloquant park_jisung", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedBy.length > 0, "Aucun utilisateur ne bloque trouvé");
+        client.assert(response.body.blockedBy[0] === "john_doe",
+            "L'utilisateur qui bloque ne correspond pas");
+    });
+%}
+
+### Supprimer l'utilisateur john_doe
+DELETE http://192.168.122.104/users/delete/john_doe
+Content-Type: */*
+
+> {%
+    client.test("Vérification suppression utilisateur john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que la liste des utilisateurs bloqués par john_doe n'existe plus
+GET http://192.168.122.104/social/users/john_doe/blocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification après suppression - liste bloqués", function() {
+        client.assert(response.status === 404, "Statut attendu: 404, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que john_doe n'apparaît plus dans la liste des utilisateurs qui bloquent park_jisung
+GET http://192.168.122.104/social/users/park_jisung/isblocked
+Content-Type: application/json
+
+> {%
+    client.test("Vérification après suppression - liste bloquant", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.blockedBy.length === 0, "La liste des utilisateurs bloquant devrait être vide");
+    });
+%}
+
+### Recréation de l'utilisateur john_doe
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "john_doe"
+}
+
+> {%
+    client.test("Vérification recréation utilisateur john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### John_doe suit park_jisung
+POST http://192.168.122.104/social/john_doe/follow/park_jisung
+
+> {%
+    client.test("Vérification suivi utilisateur", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que john_doe suit bien park_jisung
+GET http://192.168.122.104/social/users/john_doe/follows
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs suivis par john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.following.length > 0, "Aucun utilisateur suivi trouvé");
+        client.assert(response.body.following[0] === "park_jisung",
+            "L'utilisateur suivi ne correspond pas");
+    });
+%}
+
+### Vérifier que park_jisung est bien suivi par john_doe
+GET http://192.168.122.104/social/users/park_jisung/followers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification abonnés de park_jisung", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.followers.length > 0, "Aucun abonné trouvé");
+        client.assert(response.body.followers[0] === "john_doe",
+            "L'abonné ne correspond pas");
+    });
+%}
+
+### Supprimer l'utilisateur john_doe
+DELETE http://192.168.122.104/users/delete/john_doe
+Content-Type: */*
+
+> {%
+    client.test("Vérification suppression utilisateur john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que la liste des utilisateurs suivis par john_doe n'existe plus
+GET http://192.168.122.104/social/users/john_doe/follows
+Content-Type: application/json
+
+> {%
+    client.test("Vérification après suppression - liste suivis", function() {
+        client.assert(response.status === 404, "Statut attendu: 404, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que john_doe n'apparaît plus dans la liste des abonnés de park_jisung
+GET http://192.168.122.104/social/users/park_jisung/followers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification après suppression - liste abonnés", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.followers.length === 0, "La liste des abonnés devrait être vide");
+    });
+%}
+
+### Recréation de l'utilisateur john_doe
+POST http://192.168.122.104/users/create
+Content-Type: application/json
+
+{
+  "username": "john_doe"
+}
+
+> {%
+    client.test("Vérification recréation utilisateur john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Création d'un post par park_jisung
+POST http://192.168.122.104/posts
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+
+{
+  "authorUsername": "park_jisung",
+  "text": "Un post qui va être aimé puis l'utilisateur supprimé",
+  "type": "ORIGINAL"
+}
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+> {%
+    client.global.set("testPostId", response.body.postId);
+    client.test("Vérification création post pour test like", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.postId, "PostId manquant dans la réponse");
+    });
+    // Set the file-level variable
+    request.variables.set("testPostId", response.body.postId);
+%}
+
+### John_doe aime le post de park_jisung
+POST http://192.168.122.104/social/john_doe/like/{{testPostId}}
+
+> {%
+    client.test("Vérification like du post", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que john_doe a bien aimé le post
+GET http://192.168.122.104/social/users/john_doe/likedPosts
+Content-Type: application/json
+
+> {%
+    client.test("Vérification posts aimés par john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.likedPosts.length > 0, "Aucun post aimé trouvé");
+        let found = false;
+        for (let i = 0; i < response.body.likedPosts.length; i++) {
+            if (response.body.likedPosts[i].postId === testPostId) {
+                found = true;
+                break;
+            }
+        }
+        client.assert(found, "Le post aimé n'a pas été trouvé dans la liste");
+    });
+%}
+
+### Vérifier que le post est bien aimé par john_doe
+GET http://192.168.122.104/social/posts/{{testPostId}}/likeUsers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification utilisateurs ayant aimé le post", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(response.body.likeUsers.includes("john_doe"),
+            "L'utilisateur john_doe n'est pas dans la liste des utilisateurs qui ont aimé");
+    });
+%}
+
+### Supprimer l'utilisateur john_doe
+DELETE http://192.168.122.104/users/delete/john_doe
+Content-Type: */*
+
+> {%
+    client.test("Vérification suppression utilisateur john_doe", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que la liste des posts aimés par john_doe n'existe plus
+GET http://192.168.122.104/social/users/john_doe/likedPosts
+Content-Type: application/json
+
+> {%
+    client.test("Vérification après suppression - liste posts aimés", function() {
+        client.assert(response.status === 404, "Statut attendu: 404, reçu: " + response.status);
+    });
+%}
+
+### Vérifier que john_doe n'apparaît plus dans la liste des utilisateurs qui ont aimé le post
+GET http://192.168.122.104/social/posts/{{testPostId}}/likeUsers
+Content-Type: application/json
+
+> {%
+    client.test("Vérification après suppression - liste utilisateurs aimant", function() {
+        client.assert(response.status === 200, "Statut attendu: 200, reçu: " + response.status);
+        client.assert(!response.body.likeUsers.includes("john_doe"),
+            "L'utilisateur john_doe ne devrait plus apparaître dans la liste des utilisateurs qui ont aimé");
+    });
+%}

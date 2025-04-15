@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: srvc-search
+  labels:
+    app: tinyx
+    component: srvc-search
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tinyx
+      component: srvc-search
+  template:
+    metadata:
+      labels:
+        app: tinyx
+        component: srvc-search
+    spec:
+      imagePullSecrets:
+        - name: tinyx-pull-secret
+      containers:
+      - name: search-service
+        image: registry.cri.epita.fr/ing/majeures/tc/info/student/2026/2025-epitweet-tinyx-21/srvc-search
+        ports:
+        - name: http
+          containerPort: 8085

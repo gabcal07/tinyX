@@ -1,0 +1,9 @@
+kind: Kustomization
+metadata:
+  name: srvc-search
+
+namespace: tinyx
+
+resources:
+  - deployment.yml
+  - service.yml

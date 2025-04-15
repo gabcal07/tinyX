@@ -1,0 +1,4 @@
+com\epita\SocialUserActionEventSubscribeIntegrationTest.class
+com\epita\GetSocialControllerTest.class
+com\epita\UpdateSocialControllerTest.class
+META-INF\panache-archive.marker

@@ -1,0 +1,17 @@
+kind: Kustomization
+resources:
+- deployment.yml
+- service.yml
+- secrets.yml
+
+labels:
+- pairs:
+    app: tinyx
+    component: repo-social
+
+configMapGenerator:
+- name: repo-social-config
+  options:
+    labels:
+      app: tinyx
+      component: repo-social

@@ -1,0 +1,14 @@
+kind: Kustomization
+metadata:
+  name: elasticsearch
+
+namespace: tinyx
+
+resources:
+  - statefulset.yml
+  - service.yml
+
+configMapGenerator:
+  - name: elasticsearch-init
+    files:
+      - init.json=init.json
